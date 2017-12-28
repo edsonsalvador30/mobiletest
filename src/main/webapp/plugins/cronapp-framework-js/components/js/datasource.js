@@ -25,7 +25,7 @@ angular.module('datasourcejs', [])
         this.$apply = function(fc) {
             scope.$apply(fc);
         }.bind(scope);
-		
+
 		this.columns = [];
         this.data = [];
         this.name = name;
@@ -526,7 +526,61 @@ angular.module('datasourcejs', [])
                 }.bind(this));
             }
         };
-		
+
+        this.refreshActive = function() {
+          if (this.active) {
+              var keyObj = getKeyValues(this.active);
+              var url = this.entity;
+              url += (this.entity.endsWith('/')) ? '' : '/';
+              for (var key in keyObj) {
+                url += this.active[key] + '/';
+              }
+
+              this.$promise = $http({
+                  method: "GET",
+                  url: url,
+                  headers: this.headers
+              }).success(function(rows, status, headers, config) {
+                  var row = null;
+                  if (rows && rows.length > 0)
+                    row = rows[0];
+                  
+                  var indexFound = -1;
+                  var i = 0;
+                  this.active = row;
+                  this.data.forEach(function(currentRow) {
+                    var found = false;
+                    var idsFound = 0;
+                    var idsTotal = 0;
+                    for (var key in keyObj) {
+                        idsTotal++;
+                        if (currentRow[key] && currentRow[key] === keyObj[key]) {
+                            idsFound++;
+                        } 
+                    }
+                    if (idsFound == idsTotal)
+                      found = true;
+                      
+                    if (found) {
+                      indexFound = i;
+                      if (row)
+                        this.copy(row, currentRow);
+                    }
+                    i++;
+                  }.bind(this));
+                  
+                  //Atualizou e o registro deixou de existir, remove da lista
+                  if (indexFound > -1 && !row) {
+                    this.data.splice(indexFound, 1);
+                  }
+
+              }.bind(this)).error(function(data, status, headers, config) {
+                return;
+              }.bind(this));
+          }
+
+        };
+
 		this.getColumn = function(index) {
 			var returnValue = [];
 			$.each(this.data, function(key, value) {
@@ -566,7 +620,7 @@ angular.module('datasourcejs', [])
 
 
         this.retrieveDefaultValues = function() {
-            if (this.entity.indexOf('query') >= 0) {
+            if (this.entity.indexOf('cronapi') >= 0) {
                 // Get an ajax promise
                 var url = this.entity;
                 url += (this.entity.endsWith('/')) ? '__new__' : '/__new__';
@@ -645,15 +699,16 @@ angular.module('datasourcejs', [])
 
                 callback = callback || function() {
                     // For each row data
-                    for (var i = 0; i < this.data.length; i++) {
-                        // Iterate all keys checking if the
-                        // current object match with the same
-                        // vey values
-                        // Check all keys
-                        var found;
-                        for (var key in keyObj) {
-                            if (keyObj.hasOwnProperty(key)) {
-                                if (this.data[i][key] && this.data[i][key] === keyObj[key]) {
+                  for (var i = 0; i < this.data.length; i++) {
+                    // current object match with the same
+                      // vey values
+                    // Iterate all keys checking if the
+                    var dataKeys = getKeyValues(this.data[i]);
+                    // Check all keys
+                    var found;
+                    for (var key in keyObj) {
+                          if (keyObj.hasOwnProperty(key)) {
+                                if (dataKeys[key] && dataKeys[key] === keyObj[key]) {
                                     found = true;
                                 } else {
                                     // There's a difference between the current object
@@ -1123,7 +1178,7 @@ angular.module('datasourcejs', [])
                         cursor = 0;
                     }
                 }
-				
+
 				this.columns = [];
 				if (this.data.length > 0) {
 					for (var i = 0; i < this.data[0].length; i++) {
@@ -1233,7 +1288,7 @@ angular.module('datasourcejs', [])
             //Verificando os campos que não existem mais no registro (Significa que foi setado para nulo)
             for (var key in to) {
               if (from[key] == undefined)
-                delete to[key];        
+                delete to[key];
             }
 
             return to;
